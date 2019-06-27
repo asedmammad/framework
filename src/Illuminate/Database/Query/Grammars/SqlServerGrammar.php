@@ -90,6 +90,18 @@ class SqlServerGrammar extends Grammar
     }
 
     /**
+     * Get the appropriate query parameter place-holder for a value.
+     *
+     * @param  mixed   $value
+     * @return string
+     */
+    public function parameter($value)
+    {
+        // TODO: Check for column type before prepend N
+        return $this->isExpression($value) ? $this->getValue($value) : gettype($value) == 'string' ? 'N?' : '?';
+    }
+
+    /**
      * Compile a "where date" clause.
      *
      * @param  \Illuminate\Database\Query\Builder  $query
