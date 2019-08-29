@@ -523,6 +523,22 @@ class FoundationTestResponseTest extends TestCase
         $testResponse->assertJsonValidationErrors(['one' => 'foo', 'two' => 'bar']);
     }
 
+    public function testAssertJsonValidationErrorMessagesMultipleMessagesCanFail()
+    {
+        $this->expectException(AssertionFailedError::class);
+
+        $data = [
+            'status' => 'ok',
+            'errors' => ['one' => 'foo', 'two' => 'bar'],
+        ];
+
+        $testResponse = TestResponse::fromBaseResponse(
+            (new Response)->setContent(json_encode($data))
+        );
+
+        $testResponse->assertJsonValidationErrors(['one' => 'foo', 'three' => 'baz']);
+    }
+
     public function testAssertJsonValidationErrorMessagesMixed()
     {
         $data = [
@@ -701,6 +717,17 @@ class FoundationTestResponseTest extends TestCase
             json_decode($response->getContent(), true),
             $response->json()
         );
+    }
+
+    public function testItCanBeTapped()
+    {
+        $response = TestResponse::fromBaseResponse(
+            (new Response)->setContent('')->setStatusCode(418)
+        );
+
+        $response->tap(function ($response) {
+            $this->assertInstanceOf(TestResponse::class, $response);
+        })->assertStatus(418);
     }
 
     private function makeMockResponse($content)

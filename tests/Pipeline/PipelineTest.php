@@ -33,6 +33,33 @@ class PipelineTest extends TestCase
         unset($_SERVER['__test.pipe.two']);
     }
 
+    public function testMultiplePipelinesBackAndForthExecutionOrder()
+    {
+        $pipeTwo = function ($piped, $next) {
+            $_SERVER['__test.pipeline'] = $_SERVER['__test.pipeline'].'_forward2';
+
+            $value = $next($piped);
+
+            $_SERVER['__test.pipeline'] = $_SERVER['__test.pipeline'].'_backward2';
+
+            return $value;
+        };
+
+        $result = (new Pipeline(new Container))
+            ->send('foo')
+            ->through([PipelineTestPipeBack::class, $pipeTwo])
+            ->then(function ($piped) {
+                $_SERVER['__test.pipeline'] = $_SERVER['__test.pipeline'].'_core';
+
+                return $piped;
+            });
+
+        $this->assertEquals('foo', $result);
+        $this->assertEquals('forward1_forward2_core_backward2_backward1', $_SERVER['__test.pipeline']);
+
+        unset($_SERVER['__test.pipeline']);
+    }
+
     public function testPipelineUsageWithObjects()
     {
         $result = (new Pipeline(new Container))
@@ -80,6 +107,39 @@ class PipelineTest extends TestCase
         $this->assertEquals('foo', $_SERVER['__test.pipe.responsable']);
 
         unset($_SERVER['__test.pipe.responsable']);
+    }
+
+    public function testNextLayersOfOnionAreNotRunWhenOneLayerReturnsEarly()
+    {
+        $returnEarly = function ($piped, $next) {
+            $_SERVER['__test.pipeline'] = $_SERVER['__test.pipeline'].'_forward2';
+
+            return 'value_from_pipe';
+        };
+
+        $notCalled = function ($piped, $next) {
+            $_SERVER['__test.pipeline'] = $_SERVER['__test.pipeline'].'_not_called';
+
+            $value = $next($piped);
+
+            $_SERVER['__test.pipeline'] = $_SERVER['__test.pipeline'].'_not_called';
+
+            return $value;
+        };
+
+        $result = (new Pipeline(new Container))
+            ->send('foo')
+            ->through([PipelineTestPipeBack::class, $returnEarly, $notCalled])
+            ->then(function ($piped) {
+                $_SERVER['__test.pipeline'] = $_SERVER['__test.pipeline'].'not_called';
+
+                return $piped;
+            });
+
+        $this->assertEquals('value_from_pipe', $result);
+        $this->assertEquals('forward1_forward2_backward1', $_SERVER['__test.pipeline']);
+
+        unset($_SERVER['__test.pipeline']);
     }
 
     public function testPipelineUsageWithCallable()
@@ -139,16 +199,30 @@ class PipelineTest extends TestCase
         unset($_SERVER['__test.pipe.parameters']);
     }
 
+    public function testItCanWorkWithNoPipe()
+    {
+        $result = (new Pipeline(new Container))
+            ->send('foo')
+            ->through([])
+            ->thenReturn();
+
+        $this->assertEquals('foo', $result);
+    }
+
     public function testPipelineViaChangesTheMethodBeingCalledOnThePipes()
     {
+        $piped = function ($piped, $next) {
+            return $next($piped) + 1;
+        };
+
         $pipelineInstance = new Pipeline(new Container);
-        $result = $pipelineInstance->send('data')
-            ->through(PipelineTestPipeOne::class)
+        $result = $pipelineInstance->send(0)
+            ->through([PipelineTestPipeOne::class, new PipelineTestPipeDifferent, $piped])
             ->via('differentMethod')
             ->then(function ($piped) {
-                return $piped;
+                return $piped + 1;
             });
-        $this->assertEquals('data', $result);
+        $this->assertEquals(4, $result);
     }
 
     public function testPipelineThrowsExceptionOnResolveWithoutContainer()
@@ -177,6 +251,20 @@ class PipelineTest extends TestCase
     }
 }
 
+class PipelineTestPipeBack
+{
+    public function handle($piped, $next)
+    {
+        $_SERVER['__test.pipeline'] = 'forward1';
+
+        $value = $next($piped);
+
+        $_SERVER['__test.pipeline'] = $_SERVER['__test.pipeline'].'_backward1';
+
+        return $value;
+    }
+}
+
 class PipelineTestPipeOne
 {
     public function handle($piped, $next)
@@ -188,7 +276,15 @@ class PipelineTestPipeOne
 
     public function differentMethod($piped, $next)
     {
-        return $next($piped);
+        return $next($piped) + 1;
+    }
+}
+
+class PipelineTestPipeDifferent
+{
+    public function differentMethod($piped, $next)
+    {
+        return $next($piped) + 1;
     }
 }
 

@@ -123,7 +123,9 @@ class MorphTo extends BelongsTo
                                 (array) ($this->morphableEagerLoads[get_class($instance)] ?? [])
                             ));
 
-        return $query->whereIn(
+        $whereIn = $this->whereInMethod($instance, $ownerKey);
+
+        return $query->{$whereIn}(
             $instance->getTable().'.'.$ownerKey, $this->gatherKeysByType($type)
         )->get();
     }
@@ -195,9 +197,11 @@ class MorphTo extends BelongsTo
      */
     public function associate($model)
     {
-        $this->parent->setAttribute(
-            $this->foreignKey, $model instanceof Model ? $model->getKey() : null
-        );
+        $key = $model instanceof Model
+                ? ($this->ownerKey ? $model->{$this->ownerKey} : $model->getKey())
+                : null;
+
+        $this->parent->setAttribute($this->foreignKey, $key);
 
         $this->parent->setAttribute(
             $this->morphType, $model instanceof Model ? $model->getMorphClass() : null

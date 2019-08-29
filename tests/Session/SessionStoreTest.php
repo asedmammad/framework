@@ -4,6 +4,7 @@ namespace Illuminate\Tests\Session;
 
 use Mockery as m;
 use ReflectionClass;
+use Illuminate\Support\Str;
 use SessionHandlerInterface;
 use Illuminate\Session\Store;
 use PHPUnit\Framework\TestCase;
@@ -93,7 +94,7 @@ class SessionStoreTest extends TestCase
         $this->assertCount(0, $session->all());
     }
 
-    public function testSessionIsProperlySaved()
+    public function testBrandNewSessionIsProperlySaved()
     {
         $session = $this->getSession();
         $session->getHandler()->shouldReceive('read')->once()->andReturn(serialize([]));
@@ -113,6 +114,109 @@ class SessionStoreTest extends TestCase
                 ],
             ])
         );
+        $session->save();
+
+        $this->assertFalse($session->isStarted());
+    }
+
+    public function testSessionIsProperlyUpdated()
+    {
+        $session = $this->getSession();
+        $session->getHandler()->shouldReceive('read')->once()->andReturn(serialize([
+            '_token' => Str::random(40),
+            'foo' => 'bar',
+            'baz' => 'boom',
+            '_flash' => [
+                'new' => [],
+                'old' => ['baz'],
+            ],
+        ]));
+        $session->start();
+
+        $session->getHandler()->shouldReceive('write')->once()->with(
+            $this->getSessionId(),
+            serialize([
+                '_token' => $session->token(),
+                'foo' => 'bar',
+                '_flash' => [
+                    'new' => [],
+                    'old' => [],
+                ],
+            ])
+        );
+
+        $session->save();
+
+        $this->assertFalse($session->isStarted());
+    }
+
+    public function testSessionIsReSavedWhenNothingHasChanged()
+    {
+        $session = $this->getSession();
+        $session->getHandler()->shouldReceive('read')->once()->andReturn(serialize([
+            '_token' => Str::random(40),
+            'foo' => 'bar',
+            'baz' => 'boom',
+            '_flash' => [
+                'new' => [],
+                'old' => [],
+            ],
+        ]));
+        $session->start();
+
+        $session->getHandler()->shouldReceive('write')->once()->with(
+            $this->getSessionId(),
+            serialize([
+                '_token' => $session->token(),
+                'foo' => 'bar',
+                'baz' => 'boom',
+                '_flash' => [
+                    'new' => [],
+                    'old' => [],
+                ],
+            ])
+        );
+
+        $session->save();
+
+        $this->assertFalse($session->isStarted());
+    }
+
+    public function testSessionIsReSavedWhenNothingHasChangedExceptSessionId()
+    {
+        $session = $this->getSession();
+        $oldId = $session->getId();
+        $token = Str::random(40);
+        $session->getHandler()->shouldReceive('read')->once()->with($oldId)->andReturn(serialize([
+            '_token' => $token,
+            'foo' => 'bar',
+            'baz' => 'boom',
+            '_flash' => [
+                'new' => [],
+                'old' => [],
+            ],
+        ]));
+        $session->start();
+
+        $oldId = $session->getId();
+        $session->migrate();
+        $newId = $session->getId();
+
+        $this->assertNotEquals($newId, $oldId);
+
+        $session->getHandler()->shouldReceive('write')->once()->with(
+            $newId,
+            serialize([
+                '_token' => $token,
+                'foo' => 'bar',
+                'baz' => 'boom',
+                '_flash' => [
+                    'new' => [],
+                    'old' => [],
+                ],
+            ])
+        );
+
         $session->save();
 
         $this->assertFalse($session->isStarted());
@@ -209,6 +313,15 @@ class SessionStoreTest extends TestCase
         $session->reflash();
         $this->assertNotFalse(array_search('foo', $session->get('_flash.new')));
         $this->assertFalse(array_search('foo', $session->get('_flash.old')));
+    }
+
+    public function testOnly()
+    {
+        $session = $this->getSession();
+        $session->put('foo', 'bar');
+        $session->put('qu', 'ux');
+        $this->assertEquals(['foo' => 'bar', 'qu' => 'ux'], $session->all());
+        $this->assertEquals(['qu' => 'ux'], $session->only(['qu']));
     }
 
     public function testReplace()
