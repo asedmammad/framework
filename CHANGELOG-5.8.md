@@ -1,10 +1,22 @@
 # Release Notes for 5.8.x
 
-## [Unreleased](https://github.com/laravel/framework/compare/v5.8.34...5.8)
+## [Unreleased](https://github.com/laravel/framework/compare/v5.8.35...5.8)
+
+
+## [v5.8.35 (2019-09-03)](https://github.com/laravel/framework/compare/v5.8.34...v5.8.35)
+
+### Added
+- Added support of `NOT RLIKE` SQL operator ([#29788](https://github.com/laravel/framework/pull/29788))
+- Added hebrew letters to `Str:slug` language array ([#29838](https://github.com/laravel/framework/pull/29838), [ba772d6](https://github.com/laravel/framework/commit/ba772d643b88a4646c1161f5325e52de81d7a709))
+- Added support of `php7.4` ([#29842](https://github.com/laravel/framework/pull/29842))
 
 ### Fixed
-- Fixed `MorphTo::associate()` with custom owner key ([#29767](https://github.com/laravel/framework/pull/29767))
 - Fixed self-referencing `MorphOneOrMany` existence queries ([#29765](https://github.com/laravel/framework/pull/29765))
+- Fixed `QueueFake::size()` method ([#29761](https://github.com/laravel/framework/pull/29761), [ddaf6e6](https://github.com/laravel/framework/commit/ddaf6e63326263a9bb3732e887a2bf8b2381caa1))
+
+### Changed
+- Added note that the GD extension is required for generating images ([#29770](https://github.com/laravel/framework/pull/29770), [#29831](https://github.com/laravel/framework/pull/29831))
+- Changed `monolog/monolog` version to `^1.12` ([#29837](https://github.com/laravel/framework/pull/29837))
 
 
 ## [v5.8.34 (2019-08-27)](https://github.com/laravel/framework/compare/v5.8.33...v5.8.34)
